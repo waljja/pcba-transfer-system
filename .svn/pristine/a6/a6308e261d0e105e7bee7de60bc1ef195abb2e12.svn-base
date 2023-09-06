@@ -1,0 +1,10 @@
+#for tests only !
+#Thu May 19 12:56:19 CST 2022
+jco.client.lang=ZH
+jco.destination.peak_limit=20
+jco.client.client=800
+jco.client.passwd=itqaz2345
+jco.client.user=ituser
+jco.client.sysnr=00
+jco.destination.pool_capacity=10
+jco.client.ashost=172.31.2.3

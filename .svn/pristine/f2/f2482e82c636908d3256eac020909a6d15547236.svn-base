@@ -1,0 +1,38 @@
+package com.ht.controller;
+
+import com.ht.entity.Sap;
+import com.ht.util.SAPServiceUtil;
+import io.swagger.annotations.*;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * 测试接口
+ * @author 丁国钊
+ */
+@Api("JavaAPI接口")
+// 跨域调用
+@CrossOrigin
+@RestController
+@RequestMapping(value = "/api")
+public class TestController {
+    @ApiResponses({ @ApiResponse(code = 400, message = "请求参数没有填好"),
+            @ApiResponse(code = 404, message = "请求路径没有或者页面跳转路径不正确") })
+    @ApiOperation(value = "sap接口调用", notes = "测试sap接口调用")
+    @ResponseBody
+    @RequestMapping(value = "/sapTest", method = RequestMethod.GET)
+    public Sap sapTest(
+            @RequestParam(name = "partNumber", required = true, defaultValue = "") @ApiParam("型号") String partNumber,
+            @RequestParam(name = "factory", required = true, defaultValue = "") @ApiParam("工厂") String factory) {
+        Sap sap = new Sap();
+        SAPServiceUtil sapServiceUtil = new SAPServiceUtil();
+
+        try {
+            sap.setSap(sapServiceUtil.getSAPPN(partNumber, factory));
+            System.out.println("sap接口数据");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return sap;
+    }
+}

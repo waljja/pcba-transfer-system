@@ -1,0 +1,28 @@
+package test2;
+
+import static org.junit.Assert.*;
+
+import java.sql.ResultSet;
+
+import org.junit.Test;
+
+import com.ht.util.Con100HR;
+
+public class E {
+
+	@Test
+	public void test() {
+		Con100HR con100hr = new Con100HR();
+		ResultSet rs;
+		try {
+			rs= con100hr.executeQuery("select NewSN,LotQty from [HT_GenericTester].[dbo].[PP_SMTFIFOPrint] where NewSN in (select top 1000 UID  collate Chinese_PRC_CI_AS from DL_PCBAInventory where AvailableQuantity = 1 and State = 1 order by CreateTime desc)");
+			while (rs.next()) {
+				con100hr.executeUpdate("update DL_PCBAInventory set AvailableQuantity = '"+rs.getString("LotQty")+"' where UID = '"+rs.getString("NewSN")+"' and AvailableQuantity = 1 and State = 1");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+
+}

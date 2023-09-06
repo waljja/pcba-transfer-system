@@ -1,0 +1,53 @@
+package test2;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+
+import org.junit.Test;
+
+import com.ht.util.Con100HR;
+import com.ht.util.Con51DB;
+import com.ht.util.Con72DB;
+import com.ht.util.Con75DB;
+import com.ht.util.SAPServiceUtil;
+
+
+public class B {
+
+	@Test
+	public void test() throws ParseException {
+		SimpleDateFormat formatter=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		Date date1 = formatter.parse("2022-06-30 17:00:00.000");
+		Date date2 = formatter.parse("2022-07-01 13:00:00.000");
+		
+		SAPServiceUtil sap = new SAPServiceUtil();
+		try {
+			System.out.println("111："+sap.getSAPPN("620-V900006-00R1","1100"));
+			System.out.println("111："+sap.getSAPPN("620-TT4W002-00R1","1100"));
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
+	
+	public static boolean getDate(Date date1, Date date2){
+        Calendar date = Calendar.getInstance();
+        boolean flag = true;
+        date.setTime(new Date());
+        //获取开始时间
+        Calendar begin = Calendar.getInstance();
+        begin.setTime(date1);
+        //获取结束时间
+        Calendar end = Calendar.getInstance();
+        end.setTime(date2);
+        if ((date.after(begin) && date.before(end)) ||
+                (date.getTime() == begin.getTime() || date.getTime() == end.getTime())) {
+            System.out.println("当前时间在开始时间与结束时间之间");
+            flag = false;
+        }
+        return flag;
+    }
+}
