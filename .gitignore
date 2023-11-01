@@ -1,5 +1,6 @@
 .idea
 target
+.svn
 .classpath
 .project
 ABAP_AS_WITH_POOL_LEDLIGHT.jcoDestination

@@ -19,11 +19,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import javax.servlet.http.HttpServletResponse;
 import java.lang.reflect.Field;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -41,11 +43,22 @@ import java.util.regex.Pattern;
 public class PcbaInventoryController {
 
     @Autowired
-    public PcbaInventoryService PcbaService;
+    PcbaInventoryService PcbaService;
     @Autowired
-    public PCBAInventoryMapper1 inventoryMapper;
+    PCBAInventoryMapper1 inventoryMapper;
     @Autowired
-    public InventoryTakeDownMapper inventoryTakeDownMapper;
+    InventoryTakeDownMapper inventoryTakeDownMapper;
+    @Autowired
+    RestTemplate restTemplate;
+
+    @RequestMapping(value = "/test", method = RequestMethod.GET)
+    public void test() throws ParseException {
+        Map res = restTemplate.getForObject("http://172.31.2.184:5001/api/SysParameters/Get?paramName=MonthEndStartTime", Map.class);
+        String start = (String) res.get("data");
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Date startDate = format.parse(start);
+        System.out.println(startDate);
+    }
 
     /**
      * 外挂系统重新过账
@@ -64,9 +77,8 @@ public class PcbaInventoryController {
             BatchId = map.get("BatchId");
             ItemId = String.valueOf(map.get("ItemId"));
         }
-        System.out.println(!BatchId.equals(""));
-        if (!BatchId.equals("") && !ItemId.equals("")) {
-            System.out.println("update");
+        if (!BatchId.isEmpty() && !ItemId.isEmpty()) {
+            log.info("update");
             PcbaService.retryPosting(BatchId, ItemId);
         }
     }
@@ -74,8 +86,10 @@ public class PcbaInventoryController {
     /**
      * 下载看板数据
      *
-     * @param <T>
-     * @return
+     * @param response  HttpServletResponse
+     * @param StartTime 开始时间
+     * @param EndTime   结束时间
+     * @return 返回信息
      */
     @ApiOperation(value = "获取库存报表")
     @RequestMapping(value = "/downloadData", method = RequestMethod.GET)
@@ -93,7 +107,7 @@ public class PcbaInventoryController {
                 System.out.println("下载失败！");
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error(String.valueOf(e));
         }
         return null;
     }
@@ -114,7 +128,7 @@ public class PcbaInventoryController {
                 : node.equals("mi") ? "3" : node.equals("casing") ? "4" : "0");
         List<Map<String, Object>> list = PcbaService
                 .FuzzyPn(Pn, factory, state);
-        if (list.size() != 0) {
+        if (!list.isEmpty()) {
             return CommonResult.success(list);
         } else {
             return CommonResult.failed("没有查询到这个型号");
@@ -286,23 +300,6 @@ public class PcbaInventoryController {
                 totalVo.getCobtotal(), totalVo.getMitotal(), data);
     }
 
-    /*@ApiOperation(value = "获取Sn明细")
-    @RequestMapping(value = "/NewSn", method = RequestMethod.GET)
-    public CommonResult<List<Map<String, Object>>> ObtainSnData(
-            @RequestParam(name = "Lot", defaultValue = "") @ApiParam("批号") String Lot,
-            @RequestParam(name = "node", defaultValue = "") @ApiParam("节点") String node) {
-        List<Map<String, Object>> data;
-        Con72DB con72db = new Con72DB();
-        if (node.equals("smt")) {
-            data = PcbaService.QRYSmtDataMap(Lot);
-            return CommonResult.success(data);
-        } else {
-            con72db.executeQuery("");
-            data = null;
-            return CommonResult.success(data);
-        }
-    }*/
-
     /**
      * 入库 101 过账
      *
@@ -330,61 +327,9 @@ public class PcbaInventoryController {
         int state3;
         String Pn;
         ResultSet rs;
-        SendRecDataVo SendRecData;
         List list = new ArrayList<>();
         if (node.equals("smt")) {
             if (factory.equals("B1")) {
-                // 无条码工单
-                /*if (!Pattern.compile(".*[a-zA-Z]+.*").matcher(Lot).matches()) {
-                    SendRecData = PcbaService.QRYSmtDataNo(Lot);
-                } else {
-                    // 有条码工单报废批次数量扣减
-                    SendRecData = PcbaService.QRYSmtData(Lot);
-                }*/
-                /*
-                 * Aegis打印系统
-                 */
-                /*if (checkObjFieldIsNotNull(SendRecData)) {
-                    if (!SendRecData.getPn().startsWith("620")) {
-                        return CommonResult.failed("请用对应账号做101入库");
-                    }
-                    SendRecData.setUser(User);
-                    if (SendRecData.getPn().indexOf("00DR1") != -1 || SendRecData.getPn().indexOf("00DR3") != -1) {
-                        if (Location.equals("BS51")) {
-                            SendRecData.setSendLocation(Location);
-                        } else {
-                            return CommonResult.failed("5000工厂的型号只能入BS51仓");
-                        }
-                    } else {
-                        if (Location.equals("BS81")) {
-                            SendRecData.setSendLocation(Location);
-                        } else {
-                            return CommonResult.failed("B1 1100工厂的型号只能入BS81仓");
-                        }
-                    }
-                    SendRecData.setFactory(SendRecData.getPn().indexOf("00DR1") != -1 || SendRecData.getPn().indexOf("00DR3") != -1 ? "5000" : "1100");
-                    synchronized (this) {
-                        state1 = PcbaService.SendSmtplugin101(SendRecData);
-                    }
-                    if (state1 > 0) {
-                        log.info(SendRecData.getUID() + "put success!");
-                        if (Pattern.compile("(?i)[a-z]").matcher(Lot).find()) {
-                            List<Map<String, Object>> data = PcbaService
-                                    .QRYSmtDataMap(Lot);
-                            for (Map<String, Object> map : data) {
-                                PcbaService.InsertSN(map.get("SN").toString(),
-                                        map.get("UID").toString(),
-                                        map.get("Qty").toString(), map
-                                                .get("Wo").toString(),
-                                        map.get("Factory").toString(), User);
-                            }
-                        }
-                        return CommonResult.success("SMT101入库成功!");
-                    } else {
-                        return CommonResult.failed("该Lot号已做过101入库(Smt)！");
-                    }
-                } else {
-                }*/
                 // Orbit打印数据
                 SendRecDataVo data = new SendRecDataVo();
                 try {
@@ -397,15 +342,15 @@ public class PcbaInventoryController {
                         data.setQty(rs.getString("Qty"));
                         data.setWo(rs.getString("Wo"));
                         data.setWoQty(rs.getString("WoQty"));
-                        if (rs.getString("Pn").endsWith("00DR3") || rs.getString("Pn").indexOf("00DR1") != -1) { //以00DR3结尾的只能入BS51仓
+                        if (rs.getString("Pn").endsWith("00DR3") || rs.getString("Pn").contains("00DR1")) { //以00DR3结尾的只能入BS51仓
                             if (Location.equals("BS51")) {
-                                data.setSendLocation((!Location.equals("") ? Location : rs.getString("sendLocation").trim()));
+                                data.setSendLocation(Location);
                             } else {
                                 return CommonResult.failed("5000工厂的型号只能入BS51仓");
                             }
                         } else {
                             if (Location.equals("BS81")) {
-                                data.setSendLocation((!Location.equals("") ? Location : rs.getString("sendLocation").trim()));
+                                data.setSendLocation(Location);
                             } else {
                                 return CommonResult.failed("B1 1100工厂的型号只能入BS81仓");
                             }
@@ -418,7 +363,7 @@ public class PcbaInventoryController {
                                 .getString("Batch")
                                 .subSequence(13, rs.getString("Batch").length())
                                 .toString());
-                        data.setFactory(data.getPn().indexOf("00DR1") != -1 || data.getPn().indexOf("00DR3") != -1 ? "5000" : "1100");
+                        data.setFactory(data.getPn().contains("00DR1") || data.getPn().contains("00DR3") ? "5000" : "1100");
                         synchronized (this) {
                             state1 = PcbaService.SendSmtplugin101(data);
                         }
@@ -441,8 +386,8 @@ public class PcbaInventoryController {
                             // 循环生成 SQL 后一次性提交
                             String batchSql = "";
                             log.info(String.valueOf(list.size()));
-                            for (int i = 0; i < list.size(); i++) {
-                                String b = list.get(i).toString();
+                            for (Object o : list) {
+                                String b = o.toString();
                                 batchSql += SqlApi.insSn(
                                         b.substring(29, b.length() - 1),
                                         b.substring(5, 24),
@@ -451,7 +396,7 @@ public class PcbaInventoryController {
                                         data.getFactory(),
                                         User);
                             }
-                            if (batchSql != "") {
+                            if (!batchSql.isEmpty()) {
                                 int isInserted = con182HR.executeUpdate(batchSql);
                                 if (isInserted != 0) {
                                     log.info(Lot + " 批量插入 65 SN表 成功");
@@ -474,7 +419,7 @@ public class PcbaInventoryController {
                     }
                 } catch (Exception e) {
                     con72db.close();
-                    e.printStackTrace();
+                    log.error(String.valueOf(e));
                 }
             } else {
                 SendRecDataVo data = new SendRecDataVo();
@@ -492,20 +437,20 @@ public class PcbaInventoryController {
                          * 以00DR3、00DR1结尾的只能入BS51仓
                          * 以00R3、00R1结尾的只能入BS87仓
                          */
-                        if (rs.getString("Pn").endsWith("00DR3") || rs.getString("Pn").indexOf("00DR1") != -1) {
+                        if (rs.getString("Pn").endsWith("00DR3") || rs.getString("Pn").contains("00DR1")) {
                             if (Location.equals("BS51")) {
-                                data.setSendLocation((!Location.equals("") ? Location : rs.getString("sendLocation").trim()));
+                                data.setSendLocation(Location);
                             } else {
                                 return CommonResult.failed("5000工厂的型号只能入BS51仓");
                             }
                         } else if (rs.getString("Pn").endsWith("00R3") || rs.getString("Pn").endsWith("00R1")) {
                             if (Location.equals("BS87")) {
-                                data.setSendLocation((!Location.equals("") ? Location : rs.getString("sendLocation").trim()));
+                                data.setSendLocation(Location);
                             } else {
                                 return CommonResult.failed("B2 1100工厂的型号只能入BS87仓");
                             }
                         } else {
-                            data.setSendLocation((!Location.equals("") ? Location : rs.getString("sendLocation").trim()));
+                            data.setSendLocation((!Location.isEmpty() ? Location : rs.getString("sendLocation").trim()));
                         }
                         data.setRecLocation(rs.getString("RecLocation").trim());
                         data.setPn(rs.getString("Pn"));
@@ -515,7 +460,7 @@ public class PcbaInventoryController {
                                 .getString("Batch")
                                 .subSequence(13, rs.getString("Batch").length())
                                 .toString());
-                        data.setFactory(data.getPn().indexOf("00DR1") != -1 || data.getPn().indexOf("00DR3") != -1 ? "5000" : "1100");
+                        data.setFactory(data.getPn().contains("00DR1") || data.getPn().contains("00DR3") ? "5000" : "1100");
                         synchronized (this) {
                             state1 = PcbaService.SendSmtplugin101(data);
                         }
@@ -534,8 +479,8 @@ public class PcbaInventoryController {
                                 }
                                 list.add(map);
                             }
-                            for (int i = 0; i < list.size(); i++) {
-                                String b = list.get(i).toString();
+                            for (Object o : list) {
+                                String b = o.toString();
                                 PcbaService.InsertSN(
                                         b.substring(29, b.length() - 1),
                                         b.substring(5, 24), data.getQty(),
@@ -552,7 +497,7 @@ public class PcbaInventoryController {
                     }
                 } catch (Exception e) {
                     con51db.close();
-                    e.printStackTrace();
+                    log.error(String.valueOf(e));
                 }
             }
         } else if (node.equals("cob")) {
@@ -572,7 +517,7 @@ public class PcbaInventoryController {
                     data.setWo(rs.getString("Wo"));
                     data.setWoQty(rs.getString("WoQty"));
                     data.setFactory(rs.getString("Factory"));
-                    data.setSendLocation((!Location.equals("") ? Location : rs.getString("sendLocation").trim()));
+                    data.setSendLocation((!Location.isEmpty() ? Location : rs.getString("sendLocation").trim()));
                     data.setRecLocation(rs.getString("RecLocation").trim());
                     data.setPn(rs.getString("Pn"));
                     data.setWorkcenter("2");
@@ -604,8 +549,8 @@ public class PcbaInventoryController {
                                     }
                                     list.add(map);
                                 }
-                                for (int i = 0; i < list.size(); i++) {
-                                    String b = list.get(i).toString();
+                                for (Object o : list) {
+                                    String b = o.toString();
                                     PcbaService.InsertSN(
                                             b.substring(29, b.length() - 1),
                                             b.substring(5, 24), data.getQty(),
@@ -629,7 +574,7 @@ public class PcbaInventoryController {
             } catch (Exception e) {
                 con72db.close();
                 con51db.close();
-                e.printStackTrace();
+                log.error(String.valueOf(e));
             }
         } else if (node.equals("mi")) {
             SendRecDataVo data = new SendRecDataVo();
@@ -701,8 +646,8 @@ public class PcbaInventoryController {
                                         }
                                         list.add(map);
                                     }
-                                    for (int i = 0; i < list.size(); i++) {
-                                        String b = list.get(i).toString();
+                                    for (Object o : list) {
+                                        String b = o.toString();
                                         PcbaService
                                                 .InsertSN(
                                                         b.substring(29,
@@ -749,8 +694,8 @@ public class PcbaInventoryController {
                                         }
                                         list.add(map);
                                     }
-                                    for (int i = 0; i < list.size(); i++) {
-                                        String b = list.get(i).toString();
+                                    for (Object o : list) {
+                                        String b = o.toString();
                                         PcbaService
                                                 .InsertSN(
                                                         b.substring(29,
@@ -778,7 +723,7 @@ public class PcbaInventoryController {
             } catch (Exception e) {
                 con72db.close();
                 con51db.close();
-                e.printStackTrace();
+                log.error(String.valueOf(e));
             }
         } else if (node.equals("casing")) {
             SendRecDataVo data = new SendRecDataVo();
@@ -882,131 +827,137 @@ public class PcbaInventoryController {
         int state3;
         SendRecDataVo SendRecData;
         SAPServiceUtil sapUtil = new SAPServiceUtil();
-        if (node.equals("smt")) {
-            if (Model) {
-                SapClosingTime sapTime = PcbaService.SapSuspended();
-                if (getDate(sapTime.getStartTime(), sapTime.getEndTime())) {
-                    SendRecData = PcbaService.RxCobData(Lot, "101");
+        // 获取SAP月结时间
+        Map sRes = restTemplate.getForObject("http://172.31.2.184:5001/api/SysParameters/Get?paramName=MonthEndStartTime", Map.class);
+        Map eRes = restTemplate.getForObject("http://172.31.2.184:5001/api/SysParameters/Get?paramName=MonthEndEndTime", Map.class);
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String start = (String) sRes.get("data");
+        String end = (String) eRes.get("data");
+        Date startDate = format.parse(start);
+        Date endDate = format.parse(end);
+        switch (node) {
+            case "smt":
+                if (Model) {
+                    if (getDate(startDate, endDate)) {
+                        SendRecData = PcbaService.RxCobData(Lot, "101");
+                    } else {
+                        SendRecData = PcbaService.Off_RxCobData(Lot, "101");
+                    }
                 } else {
                     SendRecData = PcbaService.Off_RxCobData(Lot, "101");
                 }
-            } else {
-                SendRecData = PcbaService.Off_RxCobData(Lot, "101");
-            }
-            if (checkObjFieldIsNotNull(SendRecData)) {
-                State1 = PcbaService.InventoryStatus(Lot, "0");
-                if (State1 > 0) {
-                    SendRecData = PcbaService.BatchData(Lot.substring(0, Lot.indexOf("/")), Lot);
-                    if (checkObjFieldIsNotNull(SendRecData)) {
-                        SendRecData.setUser(User);
-                        SendRecData.setRecLocation(sapUtil.getSAPPN(
-                                SendRecData.getPn(), SendRecData.getFactory()));
-                        state2 = PcbaService.SendSmtInsert(SendRecData);
-                        synchronized (this) {
-                            state3 = PcbaService.SendSmtplugin313(SendRecData);
-                        }
-                        if (state3 > 0) {
-                            log.info(SendRecData.getUID() + "sending success!");
-                        }
-                        if (state2 > 0 && state3 > 0) {
-                            InsertOb(Lot, User, ObSendRecType.SMTSEND.getTypeName(), true);
-                            return CommonResult.success("SMT发板成功!");
+                if (checkObjFieldIsNotNull(SendRecData)) {
+                    State1 = PcbaService.InventoryStatus(Lot, "0");
+                    if (State1 > 0) {
+                        SendRecData = PcbaService.BatchData(Lot.substring(0, Lot.indexOf("/")), Lot);
+                        if (checkObjFieldIsNotNull(SendRecData)) {
+                            SendRecData.setUser(User);
+                            SendRecData.setRecLocation(sapUtil.getSAPPN(
+                                    SendRecData.getPn(), SendRecData.getFactory()));
+                            state2 = PcbaService.SendSmtInsert(SendRecData);
+                            synchronized (this) {
+                                state3 = PcbaService.SendSmtplugin313(SendRecData);
+                            }
+                            if (state3 > 0) {
+                                log.info(SendRecData.getUID() + "sending success!");
+                            }
+                            if (state2 > 0 && state3 > 0) {
+                                InsertOb(Lot, User, ObSendRecType.SMTSEND.getTypeName(), true);
+                                return CommonResult.success("SMT发板成功!");
+                            } else {
+                                return CommonResult.failed("该Lot号已发过板(Smt)！");
+                            }
                         } else {
-                            return CommonResult.failed("该Lot号已发过板(Smt)！");
+                            return CommonResult.failed("没有查询到该Lot号发料数据(Smt)1！");
                         }
                     } else {
-                        return CommonResult.failed("没有查询到该Lot号发料数据(Smt)1！");
+                        return CommonResult.failed("没有查询到该Lot号发料数据(Smt)2！");
                     }
                 } else {
-                    return CommonResult.failed("没有查询到该Lot号发料数据(Smt)2！");
+                    return CommonResult.failed("该Lot号101入库SAP过账不成功，请在外挂系统检查原因！");
                 }
-            } else {
-                return CommonResult.failed("该Lot号101入库SAP过账不成功，请在外挂系统检查原因！");
-            }
-        } else if (node.equals("cob")) {
-            if (Model) {
-                SapClosingTime sapTime = PcbaService.SapSuspended();
-                if (getDate(sapTime.getStartTime(), sapTime.getEndTime())) {
-                    SendRecData = PcbaService.RxCobData(Lot, "101");
+            case "cob":
+                if (Model) {
+                    if (getDate(startDate, endDate)) {
+                        SendRecData = PcbaService.RxCobData(Lot, "101");
+                    } else {
+                        SendRecData = PcbaService.Off_RxCobData(Lot, "101");
+                    }
                 } else {
                     SendRecData = PcbaService.Off_RxCobData(Lot, "101");
                 }
-            } else {
-                SendRecData = PcbaService.Off_RxCobData(Lot, "101");
-            }
-            if (checkObjFieldIsNotNull(SendRecData)) {
-                int state = PcbaService.InventoryStatus(Lot, "0");
-                if (state > 0) {
-                    SendRecData = PcbaService.BatchData(Lot.substring(0, Lot.indexOf("/")),
-                            Lot);
-                    if (checkObjFieldIsNotNull(SendRecData)) {
-                        SendRecData.setUser(User);
-                        SendRecData.setRecLocation(sapUtil.getSAPPN(
-                                SendRecData.getPn(), SendRecData.getFactory()));
-                        State1 = PcbaService.SendCobInsert(SendRecData);
-                        synchronized (this) {
-                            state2 = PcbaService.SendSmtplugin313(SendRecData);
-                        }
-                        if (state2 > 0) {
-                            log.info(SendRecData.getUID() + "sending success!");
-                        }
-                        if (State1 > 0 && state2 > 0) {
-                            InsertOb(Lot, User, ObSendRecType.COBSEND.getTypeName(), true);
-                            return CommonResult.success("COB发料成功");
+                if (checkObjFieldIsNotNull(SendRecData)) {
+                    int state = PcbaService.InventoryStatus(Lot, "0");
+                    if (state > 0) {
+                        SendRecData = PcbaService.BatchData(Lot.substring(0, Lot.indexOf("/")),
+                                Lot);
+                        if (checkObjFieldIsNotNull(SendRecData)) {
+                            SendRecData.setUser(User);
+                            SendRecData.setRecLocation(sapUtil.getSAPPN(
+                                    SendRecData.getPn(), SendRecData.getFactory()));
+                            State1 = PcbaService.SendCobInsert(SendRecData);
+                            synchronized (this) {
+                                state2 = PcbaService.SendSmtplugin313(SendRecData);
+                            }
+                            if (state2 > 0) {
+                                log.info(SendRecData.getUID() + "sending success!");
+                            }
+                            if (State1 > 0 && state2 > 0) {
+                                InsertOb(Lot, User, ObSendRecType.COBSEND.getTypeName(), true);
+                                return CommonResult.success("COB发料成功");
+                            } else {
+                                return CommonResult.failed("该Lot号已发过板(Cob)！");
+                            }
                         } else {
-                            return CommonResult.failed("该Lot号已发过板(Cob)！");
+                            return CommonResult.failed("没有查询到该Lot号发料数据(Cob)1！");
                         }
                     } else {
-                        return CommonResult.failed("没有查询到该Lot号发料数据(Cob)1！");
+                        return CommonResult.failed("没有查询到该Lot号发料数据(Cob)2！");
                     }
                 } else {
-                    return CommonResult.failed("没有查询到该Lot号发料数据(Cob)2！");
+                    return CommonResult.failed("该Lot号101入库SAP过账不成功，请在外挂系统检查原因！");
                 }
-            } else {
-                return CommonResult.failed("该Lot号101入库SAP过账不成功，请在外挂系统检查原因！");
-            }
-        } else if (node.equals("mi")) {
-            if (Model) {
-                SapClosingTime sapTime = PcbaService.SapSuspended();
-                if (getDate(sapTime.getStartTime(), sapTime.getEndTime())) {
-                    SendRecData = PcbaService.RxCobData(Lot, "101");
+            case "mi":
+                if (Model) {
+                    if (getDate(startDate, endDate)) {
+                        SendRecData = PcbaService.RxCobData(Lot, "101");
+                    } else {
+                        SendRecData = PcbaService.Off_RxCobData(Lot, "101");
+                    }
                 } else {
                     SendRecData = PcbaService.Off_RxCobData(Lot, "101");
                 }
-            } else {
-                SendRecData = PcbaService.Off_RxCobData(Lot, "101");
-            }
-            if (checkObjFieldIsNotNull(SendRecData)) {
-                int state = PcbaService.InventoryStatus(Lot, "0");
-                if (state > 0) {
-                    SendRecData = PcbaService.BatchData(Lot.substring(0, Lot.indexOf("/")),
-                            Lot);
-                    if (checkObjFieldIsNotNull(SendRecData)) {
-                        SendRecData.setUser(User);
-                        SendRecData.setRecLocation(sapUtil.getSAPPN(
-                                SendRecData.getPn(), SendRecData.getFactory()));
-                        State1 = PcbaService.SendMiInsert(SendRecData);
-                        synchronized (this) {
-                            state2 = PcbaService.SendSmtplugin313(SendRecData);
-                        }
-                        if (state2 > 0) {
-                            log.info(SendRecData.getUID() + "sending success!");
-                        }
-                        if (State1 > 0 && state2 > 0) {
-                            InsertOb(Lot, User, ObSendRecType.MISEND.getTypeName(), true);
-                            return CommonResult.success("MI发料成功");
+                if (checkObjFieldIsNotNull(SendRecData)) {
+                    int state = PcbaService.InventoryStatus(Lot, "0");
+                    if (state > 0) {
+                        SendRecData = PcbaService.BatchData(Lot.substring(0, Lot.indexOf("/")),
+                                Lot);
+                        if (checkObjFieldIsNotNull(SendRecData)) {
+                            SendRecData.setUser(User);
+                            SendRecData.setRecLocation(sapUtil.getSAPPN(
+                                    SendRecData.getPn(), SendRecData.getFactory()));
+                            State1 = PcbaService.SendMiInsert(SendRecData);
+                            synchronized (this) {
+                                state2 = PcbaService.SendSmtplugin313(SendRecData);
+                            }
+                            if (state2 > 0) {
+                                log.info(SendRecData.getUID() + "sending success!");
+                            }
+                            if (State1 > 0 && state2 > 0) {
+                                InsertOb(Lot, User, ObSendRecType.MISEND.getTypeName(), true);
+                                return CommonResult.success("MI发料成功");
+                            } else {
+                                return CommonResult.failed("该Lot号已发过板(Mi)！");
+                            }
                         } else {
-                            return CommonResult.failed("该Lot号已发过板(Mi)！");
+                            return CommonResult.failed("没有查询到该Lot号发料数据(Mi)1！");
                         }
                     } else {
-                        return CommonResult.failed("没有查询到该Lot号发料数据(Mi)1！");
+                        return CommonResult.failed("没有查询到该Lot号发料数据(Mi)2！");
                     }
                 } else {
-                    return CommonResult.failed("没有查询到该Lot号发料数据(Mi)2！");
+                    return CommonResult.failed("该Lot号101入库SAP过账不成功，请在外挂系统检查原因！");
                 }
-            } else {
-                return CommonResult.failed("该Lot号101入库SAP过账不成功，请在外挂系统检查原因！");
-            }
         }
         return CommonResult.failed("未发板成功！");
     }
@@ -1014,221 +965,233 @@ public class PcbaInventoryController {
     /**
      * 插入库存表信息
      *
-     * @param Lot
-     * @param Location
-     * @param UserName
-     * @param node
-     * @param Model
-     * @return
+     * @param Lot      UID
+     * @param Location 库位
+     * @param UserName 用户名
+     * @param node     制程
+     * @param Model    模式
+     * @return 返回信息
      */
     @ApiOperation(value = "将Pcba板信息插入库存表")
     @RequestMapping(value = "/insertpcba", method = RequestMethod.GET)
-    public CommonResult<String> PcbaStorage(
+    public CommonResult<String> pcbaStorage(
             @RequestParam(name = "Lot", defaultValue = "") @ApiParam("批号") String Lot,
             @RequestParam(name = "Location", defaultValue = "") @ApiParam("位置") String Location,
             @RequestParam(name = "UserName", defaultValue = "") @ApiParam("用户名") String UserName,
             @RequestParam(name = "node", defaultValue = "") @ApiParam("节点") String node,
             @RequestParam(name = "Model", defaultValue = "") @ApiParam("模式") Boolean Model,
-            @RequestParam(name = "factory", defaultValue = "") @ApiParam("工厂") String factory) {
-        SendRecDataVo SendRecData;
+            @RequestParam(name = "factory", defaultValue = "") @ApiParam("工厂") String factory) throws ParseException {
         int state1;
         int state3 = 0;
-        if (node.equals("smt")) {
-            try {
-                String state = PcbaService.InventoryState(Lot);
-                if (state == "" || state == null) { // 不在库存中（未经过101入库）
-                    if (Constants.isAccount(UserName)) {//判断是否是特殊用户
-                        return BindingLocation(Lot, Location, UserName,
-                                Model, factory);
-                    } else { // 普通用户
-                        String flag = Fifo101(Lot, Lot.substring(0, Lot.indexOf("/")), "", node,
-                                factory);
-                        if (flag.equals("true")) {
+        SendRecDataVo SendRecData;
+        // 获取SAP月结时间
+        Map sRes = restTemplate.getForObject("http://172.31.2.184:5001/api/SysParameters/Get?paramName=MonthEndStartTime", Map.class);
+        Map eRes = restTemplate.getForObject("http://172.31.2.184:5001/api/SysParameters/Get?paramName=MonthEndEndTime", Map.class);
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String start = (String) sRes.get("data");
+        String end = (String) eRes.get("data");
+        Date startDate = format.parse(start);
+        Date endDate = format.parse(end);
+        switch (node) {
+            case "smt":
+                try {
+                    String state = PcbaService.InventoryState(Lot);
+                    if (Objects.equals(state, "") || state == null) { // 不在库存中（未经过101入库）
+                        if (Constants.isAccount(UserName)) {//判断是否是特殊用户
                             return BindingLocation(Lot, Location, UserName,
                                     Model, factory);
-                        } else {
-                            return CommonResult.failed(flag);
+                        } else { // 普通用户
+                            String flag = Fifo101(Lot, Lot.substring(0, Lot.indexOf("/")), "", node,
+                                    factory);
+                            if (flag.equals("true")) {
+                                return BindingLocation(Lot, Location, UserName,
+                                        Model, factory);
+                            } else {
+                                return CommonResult.failed(flag);
+                            }
                         }
+                    } else { // 工单未执行过绑库
+                        return BindingLocation(Lot, Location, UserName,
+                                Model, factory);
                     }
-                } else { // 工单未执行过绑库
-                    return BindingLocation(Lot, Location, UserName,
-                            Model, factory);
+                } catch (SQLException e) {
+                    log.error(String.valueOf(e));
                 }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        } else if (node.equals("cob")) {
-            if (Model) {
-                SapClosingTime sapTime = PcbaService.SapSuspended();
-                if (getDate(sapTime.getStartTime(), sapTime.getEndTime())) {
-                    SendRecData = PcbaService.RxCobData(Lot, "313");
+                break;
+            case "cob":
+                if (Model) {
+                    if (getDate(startDate, endDate)) {
+                        SendRecData = PcbaService.RxCobData(Lot, "313");
+                    } else {
+                        SendRecData = PcbaService.Off_RxCobData(Lot, "313");
+                    }
                 } else {
                     SendRecData = PcbaService.Off_RxCobData(Lot, "313");
                 }
-            } else {
-                SendRecData = PcbaService.Off_RxCobData(Lot, "313");
-            }
-            if (checkObjFieldIsNotNull(SendRecData)) {
-                if (SendRecData.getRecLocation().equals("BS80")) {
-                    SendRecData.setBatch(SendRecData.getUID()
-                            .subSequence(13, SendRecData.getUID().length())
-                            .toString());
-                    SendRecData.setUser(UserName);
-                    synchronized (this) {
-                        state1 = PcbaService.RxCobplugin315(SendRecData);
-                    }
-                    state3 = PcbaService.RxSmtInsert315(SendRecData);
-                    if (state1 > 0 && state3 > 0) {
-                        PcbaService.UpStatus(Lot);
-                        InsertOb(Lot, UserName, ObSendRecType.COBREC.getTypeName(), false);
-                        return CommonResult.success("Cob收料成功");
-                    } else {
-                        return CommonResult.failed("该Lot号已经收料(COB)！");
-                    }
+                if (checkObjFieldIsNotNull(SendRecData)) {
+                    if (SendRecData.getRecLocation().equals("BS80")) {
+                        SendRecData.setBatch(SendRecData.getUID()
+                                .subSequence(13, SendRecData.getUID().length())
+                                .toString());
+                        SendRecData.setUser(UserName);
+                        synchronized (this) {
+                            state1 = PcbaService.RxCobplugin315(SendRecData);
+                        }
+                        state3 = PcbaService.RxSmtInsert315(SendRecData);
+                        if (state1 > 0 && state3 > 0) {
+                            PcbaService.UpStatus(Lot);
+                            InsertOb(Lot, UserName, ObSendRecType.COBREC.getTypeName(), false);
+                            return CommonResult.success("Cob收料成功");
+                        } else {
+                            return CommonResult.failed("该Lot号已经收料(COB)！");
+                        }
 
+                    } else {
+                        return CommonResult.failed("COB账号只能收发往COB的型号");
+                    }
                 } else {
-                    return CommonResult.failed("COB账号只能收发往COB的型号");
+                    return CommonResult.failed("该Lot号313发板SAP过账不成功，请在外挂系统检查原因！");
                 }
-            } else {
-                return CommonResult.failed("该Lot号313发板SAP过账不成功，请在外挂系统检查原因！");
-            }
-        } else if (node.equals("mi")) {
-            if (Model) {
-                SapClosingTime sapTime = PcbaService.SapSuspended();
-                if (getDate(sapTime.getStartTime(), sapTime.getEndTime())) {
-                    SendRecData = PcbaService.RxCobData(Lot, "313");
+            case "mi":
+                if (Model) {
+                    if (getDate(startDate, endDate)) {
+                        SendRecData = PcbaService.RxCobData(Lot, "313");
+                    } else {
+                        SendRecData = PcbaService.Off_RxCobData(Lot, "313");
+                    }
                 } else {
                     SendRecData = PcbaService.Off_RxCobData(Lot, "313");
                 }
-            } else {
-                SendRecData = PcbaService.Off_RxCobData(Lot, "313");
-            }
-            if (checkObjFieldIsNotNull(SendRecData)) {
-                if (SendRecData.getRecLocation().equals("BS82")
-                        || SendRecData.getRecLocation().equals("BS8G")
-                        || SendRecData.getRecLocation().equals("BS5E")) {
-                    SendRecData.setBatch(SendRecData.getUID()
-                            .subSequence(13, SendRecData.getUID().length())
-                            .toString());
-                    SendRecData.setUser(UserName);
-                    if (SendRecData.getSendLocation().equals("BS81")
-                            || SendRecData.getSendLocation().equals("BS87") || SendRecData.getSendLocation().equals("BS51")) {
-                        state3 = PcbaService.RxSmtInsert315(SendRecData);
-                    } else if (SendRecData.getSendLocation().equals("BS80")) {
-                        state3 = PcbaService.RxCobInsert315(SendRecData);
-                    }
-                    synchronized (this) {
-                        state1 = PcbaService.RxCobplugin315(SendRecData);
-                    }
-                    if (state1 > 0) {
-                        log.info(SendRecData.getUID() + "receiving success!");
-                    }
-                    if (state1 > 0 && state3 > 0) {
-                        PcbaService.UpStatus(Lot);
-                        InsertOb(Lot, UserName, ObSendRecType.MIREC.getTypeName(), false);
-                        return CommonResult.success("Mi收料成功");
+                if (checkObjFieldIsNotNull(SendRecData)) {
+                    if (SendRecData.getRecLocation().equals("BS82")
+                            || SendRecData.getRecLocation().equals("BS8G")
+                            || SendRecData.getRecLocation().equals("BS5E")) {
+                        SendRecData.setBatch(SendRecData.getUID()
+                                .subSequence(13, SendRecData.getUID().length())
+                                .toString());
+                        SendRecData.setUser(UserName);
+                        if (SendRecData.getSendLocation().equals("BS81")
+                                || SendRecData.getSendLocation().equals("BS87") || SendRecData.getSendLocation().equals("BS51")) {
+                            state3 = PcbaService.RxSmtInsert315(SendRecData);
+                        } else if (SendRecData.getSendLocation().equals("BS80")) {
+                            state3 = PcbaService.RxCobInsert315(SendRecData);
+                        }
+                        synchronized (this) {
+                            state1 = PcbaService.RxCobplugin315(SendRecData);
+                        }
+                        if (state1 > 0) {
+                            log.info(SendRecData.getUID() + "receiving success!");
+                        }
+                        if (state1 > 0 && state3 > 0) {
+                            PcbaService.UpStatus(Lot);
+                            InsertOb(Lot, UserName, ObSendRecType.MIREC.getTypeName(), false);
+                            return CommonResult.success("Mi收料成功");
+                        } else {
+                            return CommonResult.failed("该Lot号已经收料(Mi)！");
+                        }
                     } else {
-                        return CommonResult.failed("该Lot号已经收料(Mi)！");
+                        return CommonResult.failed("MI账号只能收发往MI的型号");
                     }
                 } else {
-                    return CommonResult.failed("MI账号只能收发往MI的型号");
+                    return CommonResult.failed("该Lot号313发板SAP过账不成功，请在外挂系统检查原因！");
                 }
-            } else {
-                return CommonResult.failed("该Lot号313发板SAP过账不成功，请在外挂系统检查原因！");
-            }
-        } else if (node.equals("casing")) {
-            if (Model) {
-                SapClosingTime sapTime = PcbaService.SapSuspended();
-                if (getDate(sapTime.getStartTime(), sapTime.getEndTime())) {
-                    SendRecData = PcbaService.RxCobData(Lot, "313");
+            case "casing":
+                if (Model) {
+                    if (getDate(startDate, endDate)) {
+                        SendRecData = PcbaService.RxCobData(Lot, "313");
+                    } else {
+                        SendRecData = PcbaService.Off_RxCobData(Lot, "313");
+                    }
                 } else {
                     SendRecData = PcbaService.Off_RxCobData(Lot, "313");
                 }
-            } else {
-                SendRecData = PcbaService.Off_RxCobData(Lot, "313");
-            }
-            if (checkObjFieldIsNotNull(SendRecData)) {
-                if (SendRecData.getRecLocation().equals("BS83")
-                        || SendRecData.getRecLocation().equals("BS8E")
-                        || SendRecData.getRecLocation().equals("BS8A")
-                        || SendRecData.getRecLocation().equals("BS8G")
-                        || SendRecData.getRecLocation().equals("BS5C")
-                        || SendRecData.getRecLocation().equals("BS5D")
-                        || SendRecData.getRecLocation().equals("BS5E")
-                        || SendRecData.getRecLocation().equals("BS53")) {
-                    SendRecData.setBatch(SendRecData.getUID()
-                            .subSequence(13, SendRecData.getUID().length())
-                            .toString());
-                    SendRecData.setUser(UserName);
-                    if (SendRecData.getSendLocation().equals("BS81") || SendRecData.getSendLocation().equals("BS87") || SendRecData.getSendLocation().equals("BS51")) {
-                        state3 = PcbaService.RxSmtInsert315(SendRecData);
-                    } else if (SendRecData.getSendLocation().equals("BS80")) {
-                        state3 = PcbaService.RxCobInsert315(SendRecData);
-                    } else if (SendRecData.getSendLocation().equals("BS82")
-                            || SendRecData.getSendLocation().equals("BS8G")) {
-                        state3 = PcbaService.RxMiInsert315(SendRecData);
-                    }
-                    synchronized (this) {
-                        state1 = PcbaService.RxCobplugin315(SendRecData);
-                    }
-                    if (state1 > 0) {
-                        log.info(SendRecData.getUID() + "receiving success!");
-                    }
-                    if (state1 > 0 && state3 > 0) {
-                        PcbaService.UpStatus(Lot);
-                        InsertOb(Lot, UserName, ObSendRecType.CASINGREC.getTypeName(), false);
-                        return CommonResult.success("Casing收料成功");
+                if (checkObjFieldIsNotNull(SendRecData)) {
+                    if (SendRecData.getRecLocation().equals("BS83")
+                            || SendRecData.getRecLocation().equals("BS8E")
+                            || SendRecData.getRecLocation().equals("BS8A")
+                            || SendRecData.getRecLocation().equals("BS8G")
+                            || SendRecData.getRecLocation().equals("BS5C")
+                            || SendRecData.getRecLocation().equals("BS5D")
+                            || SendRecData.getRecLocation().equals("BS5E")
+                            || SendRecData.getRecLocation().equals("BS53")) {
+                        SendRecData.setBatch(SendRecData.getUID()
+                                .subSequence(13, SendRecData.getUID().length())
+                                .toString());
+                        SendRecData.setUser(UserName);
+                        switch (SendRecData.getSendLocation()) {
+                            case "BS81":
+                            case "BS87":
+                            case "BS51":
+                                state3 = PcbaService.RxSmtInsert315(SendRecData);
+                                break;
+                            case "BS80":
+                                state3 = PcbaService.RxCobInsert315(SendRecData);
+                                break;
+                            case "BS82":
+                            case "BS8G":
+                                state3 = PcbaService.RxMiInsert315(SendRecData);
+                                break;
+                        }
+                        synchronized (this) {
+                            state1 = PcbaService.RxCobplugin315(SendRecData);
+                        }
+                        if (state1 > 0) {
+                            log.info(SendRecData.getUID() + "receiving success!");
+                        }
+                        if (state1 > 0 && state3 > 0) {
+                            PcbaService.UpStatus(Lot);
+                            InsertOb(Lot, UserName, ObSendRecType.CASINGREC.getTypeName(), false);
+                            return CommonResult.success("Casing收料成功");
+                        } else {
+                            return CommonResult.failed("该Lot号已经收料(Casing)！");
+                        }
                     } else {
-                        return CommonResult.failed("该Lot号已经收料(Casing)！");
+                        return CommonResult.failed("Casing账号只能收发往Casing的型号");
                     }
                 } else {
-                    return CommonResult.failed("Casing账号只能收发往Casing的型号");
+                    return CommonResult.failed("该Lot号313发板SAP过账不成功，请在外挂系统检查原因！");
                 }
-            } else {
-                return CommonResult.failed("该Lot号313发板SAP过账不成功，请在外挂系统检查原因！");
-            }
-        } else if (node.equals("MiCasing")) {
-            if (Model) {
-                SapClosingTime sapTime = PcbaService.SapSuspended();
-                if (getDate(sapTime.getStartTime(), sapTime.getEndTime())) {
-                    SendRecData = PcbaService.RxCobData(Lot, "313");
+            case "MiCasing":
+                if (Model) {
+                    if (getDate(startDate, endDate)) {
+                        SendRecData = PcbaService.RxCobData(Lot, "313");
+                    } else {
+                        SendRecData = PcbaService.Off_RxCobData(Lot, "313");
+                    }
                 } else {
                     SendRecData = PcbaService.Off_RxCobData(Lot, "313");
                 }
-            } else {
-                SendRecData = PcbaService.Off_RxCobData(Lot, "313");
-            }
-            if (checkObjFieldIsNotNull(SendRecData)) {
-                if (SendRecData.getRecLocation().equals("BS82")
-                        || SendRecData.getRecLocation().equals("BS8G")) {
-                    SendRecData.setBatch(SendRecData.getUID()
-                            .subSequence(13, SendRecData.getUID().length())
-                            .toString());
-                    SendRecData.setUser(UserName);
-                    if (SendRecData.getSendLocation().equals("BS81")
-                            || SendRecData.getSendLocation().equals("BS87")) {
-                        state3 = PcbaService.RxSmtInsert315(SendRecData);
-                    } else if (SendRecData.getSendLocation().equals("BS80")) {
-                        state3 = PcbaService.RxCobInsert315(SendRecData);
-                    }
-                    synchronized (this) {
-                        state1 = PcbaService.RxCobplugin315(SendRecData);
-                    }
-                    if (state1 > 0) {
-                        log.info(SendRecData.getUID() + "receiving success!");
-                    }
-                    if (state1 > 0 && state3 > 0) {
-                        PcbaService.UpStatus(Lot);
-                        return CommonResult.success("Mi收料成功");
+                if (checkObjFieldIsNotNull(SendRecData)) {
+                    if (SendRecData.getRecLocation().equals("BS82")
+                            || SendRecData.getRecLocation().equals("BS8G")) {
+                        SendRecData.setBatch(SendRecData.getUID()
+                                .subSequence(13, SendRecData.getUID().length())
+                                .toString());
+                        SendRecData.setUser(UserName);
+                        if (SendRecData.getSendLocation().equals("BS81")
+                                || SendRecData.getSendLocation().equals("BS87")) {
+                            state3 = PcbaService.RxSmtInsert315(SendRecData);
+                        } else if (SendRecData.getSendLocation().equals("BS80")) {
+                            state3 = PcbaService.RxCobInsert315(SendRecData);
+                        }
+                        synchronized (this) {
+                            state1 = PcbaService.RxCobplugin315(SendRecData);
+                        }
+                        if (state1 > 0) {
+                            log.info(SendRecData.getUID() + "receiving success!");
+                        }
+                        if (state1 > 0 && state3 > 0) {
+                            PcbaService.UpStatus(Lot);
+                            return CommonResult.success("Mi收料成功");
+                        } else {
+                            return CommonResult.failed("该Lot号已经收料(Mi)！");
+                        }
                     } else {
-                        return CommonResult.failed("该Lot号已经收料(Mi)！");
+                        return CommonResult.failed("MI账号只能收发往MI的型号");
                     }
                 } else {
-                    return CommonResult.failed("MI账号只能收发往MI的型号");
+                    return CommonResult.failed("没有查询到该Lot号收料数据(Mi)！");
                 }
-            } else {
-                return CommonResult.failed("没有查询到该Lot号收料数据(Mi)！");
-            }
         }
         return CommonResult.failed("未收料成功！");
     }
@@ -1501,39 +1464,40 @@ public class PcbaInventoryController {
 
     public CommonResult<String> BindingLocation(String Lot, String Location,
                                                 String UserName, Boolean Model, String factory)
-            throws SQLException {
-        Con51DB con51db = new Con51DB();
-        Con72DB Con72DB = new Con72DB();
-        ResultSet rs;
-        ResultCode result;
-        SendRecDataVo SendRecData;
+            throws SQLException, ParseException {
         int state1;
         int state3;
         String state2;
+        ResultSet rs;
+        ResultCode result;
+        SendRecDataVo SendRecData;
+        Con51DB con51db = new Con51DB();
+        Con72DB Con72DB = new Con72DB();
+        // 获取SAP月结时间
+        Map sRes = restTemplate.getForObject("http://172.31.2.184:5001/api/SysParameters/Get?paramName=MonthEndStartTime", Map.class);
+        Map eRes = restTemplate.getForObject("http://172.31.2.184:5001/api/SysParameters/Get?paramName=MonthEndEndTime", Map.class);
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String start = (String) sRes.get("data");
+        String end = (String) eRes.get("data");
+        Date startDate = format.parse(start);
+        Date endDate = format.parse(end);
         if (Model) {
-            SapClosingTime sapTime = PcbaService.SapSuspended();
-            if (getDate(sapTime.getStartTime(), sapTime.getEndTime())) {
+            if (getDate(startDate, endDate)) {
                 SendRecData = PcbaService.RxCobData(Lot, "101");
-                if (checkObjFieldIsNotNull(SendRecData)) {
-                    SendRecData = null;
-                } else {
+                if (!checkObjFieldIsNotNull(SendRecData)) {
                     result = ResultCode.TRANSFERWASUNSUCCESSFUL101;
                     return CommonResult.failed(result);
                 }
             } else {
                 SendRecData = PcbaService.Off_RxCobData(Lot, "101");
-                if (checkObjFieldIsNotNull(SendRecData)) {
-                    SendRecData = null;
-                } else {
+                if (!checkObjFieldIsNotNull(SendRecData)) {
                     result = ResultCode.THEREISNOPOSTING101;
                     return CommonResult.failed(result);
                 }
             }
         } else {
             SendRecData = PcbaService.Off_RxCobData(Lot, "101");
-            if (checkObjFieldIsNotNull(SendRecData)) {
-                SendRecData = null;
-            } else {
+            if (!checkObjFieldIsNotNull(SendRecData)) {
                 result = ResultCode.THEREISNOPOSTING101;
                 return CommonResult.failed(result);
             }
@@ -1545,45 +1509,7 @@ public class PcbaInventoryController {
              * 未绑库 -> 绑库
              * 已绑库 -> 移库
              */
-            if (state2 == "" || state2 == null) {
-                // 无条码工单
-                /*if (!Pattern.compile(".*[a-zA-Z]+.*").matcher(Lot).matches()) {
-                    SendRecData = PcbaService.QRYSmtDataNo(Lot);
-                } else {
-                    // 有条码工单 报废批次 数量扣减
-                    SendRecData = PcbaService.QRYSmtData(Lot);
-                }
-                if (checkObjFieldIsNotNull(SendRecData)) {
-                    if (!SendRecData.getPn().startsWith("620")) {
-                        return CommonResult.failed("SMT账号只能绑SMT的型号");
-                    }
-                    SendRecData.setUser(UserName);
-                    SendRecData.setBatch(SendRecData.getBatch());
-                    if (SendRecData.getPn().endsWith("_SA")) {
-                        SendRecData.setPn(SendRecData
-                                .getPn()
-                                .subSequence(0,
-                                        SendRecData.getPn().length() - 3)
-                                .toString());
-                    } else {
-                        SendRecData.setPn(SendRecData.getPn());
-                    }
-                    SendRecData.setLocation(Location);
-                    SendRecData.setSendLocation(Location);
-                    SendRecData.setRecLocation(Location);
-                    SendRecData.setPlant(factory);
-                    SendRecData.setWorkcenter("1");
-                    if (SendRecData.getPn().indexOf("00DR1") != -1 || SendRecData.getPn().indexOf("00DR3") != -1) {
-                        SendRecData.setFactory("5000");
-                    }
-                    state1 = PcbaService.PcbaStorage(SendRecData);
-                    if (state1 > 0) {
-                        return CommonResult.success("SMT保存到库存表成功!");
-                    } else {
-                        return CommonResult.failed("绑库失败！");
-                    }
-                } else {
-                }*/
+            if (Objects.equals(state2, "") || state2 == null) {
                 // B2 测试工单
                 rs = Con72DB.executeQuery(SqlApi.SelLotData(Lot));
                 SendRecDataVo SendRecData1 = new SendRecDataVo();
@@ -1606,7 +1532,7 @@ public class PcbaInventoryController {
                     SendRecData1.setPlant(factory);
                 }
                 // 此Lot未绑库
-                if (state2 == "" || state2 == null) {
+                if (Objects.equals(state2, "") || state2 == null) {
                     if (checkObjFieldIsNotNull(SendRecData1)) {
                         SendRecData1.setUser(UserName);
                         // 插入库存
@@ -1642,42 +1568,6 @@ public class PcbaInventoryController {
             } else {
                 state3 = PcbaService.InventoryStatus(Lot, "2");
                 if (state3 > 0) {
-                    // 绑库方法加上报废批次数量处理，确保库存表数据和101入库时相同
-                    // 无条码工单
-                    /*if (!Pattern.compile(".*[a-zA-Z]+.*").matcher(Lot).matches()) {
-                        SendRecData = PcbaService.QRYSmtDataNo(Lot);
-                    } else {
-                        // 有条码工单报废批次数量扣减
-                        SendRecData = PcbaService.QRYSmtData(Lot);
-                    }
-                    if (checkObjFieldIsNotNull(SendRecData)) {
-                        SendRecData.setUser(UserName);
-                        SendRecData.setBatch(SendRecData.getBatch());
-                        if (SendRecData.getPn().endsWith("_SA")) {
-                            SendRecData.setPn(SendRecData
-                                    .getPn()
-                                    .subSequence(0,
-                                            SendRecData.getPn().length() - 3)
-                                    .toString());
-                        } else {
-                            SendRecData.setPn(SendRecData.getPn());
-                        }
-                        SendRecData.setLocation(Location);
-                        SendRecData.setSendLocation(Location);
-                        SendRecData.setRecLocation(Location);
-                        SendRecData.setPlant(factory);
-                        SendRecData.setWorkcenter("1");
-                        if (SendRecData.getPn().indexOf("00DR1") != -1 || SendRecData.getPn().indexOf("00DR3") != -1) {
-                            SendRecData.setFactory("5000");
-                        }
-                        state1 = PcbaService.PcbaStorage(SendRecData);
-                        if (state1 > 0) {
-                            return CommonResult.success("SMT保存到库存表成功!");
-                        } else {
-                            return CommonResult.failed("绑库失败！");
-                        }
-                    } else {
-                    }*/
                     // B2
                     rs = Con72DB.executeQuery(SqlApi.SelLotData(Lot));
                     SendRecDataVo SendRecData1 = new SendRecDataVo();
@@ -1700,31 +1590,16 @@ public class PcbaInventoryController {
                         SendRecData1.setPlant(factory);
                     }
                     // 此Lot未绑库
-                    if (state2 == "" || state2 == null) {
-                        if (checkObjFieldIsNotNull(SendRecData1)) {
-                            SendRecData1.setUser(UserName);
-                            // 插入库存
-                            state1 = PcbaService.PcbaStorage(SendRecData1);
-                            if (state1 > 0) {
-                                return CommonResult.success("SMT保存到库存表成功!");
-                            } else {
-                                return CommonResult.failed("绑库失败！");
-                            }
+                    if (checkObjFieldIsNotNull(SendRecData1)) {
+                        SendRecData1.setUser(UserName);
+                        state1 = PcbaService.PcbaStorage(SendRecData1);
+                        if (state1 > 0) {
+                            return CommonResult.success("SMT保存到库存表成功!");
                         } else {
-                            return CommonResult.failed("未查询到相关批次数据，请确认批次是否有错！");
+                            return CommonResult.failed("绑库失败！");
                         }
                     } else {
-                        if (checkObjFieldIsNotNull(SendRecData1)) {
-                            SendRecData1.setUser(UserName);
-                            state1 = PcbaService.PcbaStorage(SendRecData1);
-                            if (state1 > 0) {
-                                return CommonResult.success("SMT保存到库存表成功!");
-                            } else {
-                                return CommonResult.failed("绑库失败！");
-                            }
-                        } else {
-                            return CommonResult.failed("未查询到相关批次数据，请确认批次是否有错！");
-                        }
+                        return CommonResult.failed("未查询到相关批次数据，请确认批次是否有错！");
                     }
                 } else {
                     return CommonResult.failed("重新绑库失败！");
@@ -1753,7 +1628,7 @@ public class PcbaInventoryController {
                 SendRecData1.setPlant(factory);
             }
             // 此Lot未绑库
-            if (state2 == "" || state2 == null) {
+            if (Objects.equals(state2, "") || state2 == null) {
                 if (checkObjFieldIsNotNull(SendRecData1)) {
                     SendRecData1.setUser(UserName);
                     // 插入库存
