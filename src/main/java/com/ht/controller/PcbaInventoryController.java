@@ -11,7 +11,6 @@ import com.ht.mapper.InventoryTakeDownMapper;
 import com.ht.mapper.PCBAInventoryMapper1;
 import com.ht.service.PcbaInventoryService;
 import com.ht.util.*;
-import com.ht.vo.SapClosingTime;
 import com.ht.vo.SendRecDataVo;
 import com.ht.vo.TotalVo;
 import io.swagger.annotations.*;
@@ -28,7 +27,6 @@ import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Pattern;
 
 /**
  * PCBA 移交流程处理模块
@@ -159,7 +157,7 @@ public class PcbaInventoryController {
             sap = PcbaService.SelFactory(Lot, "0");
             try {
                 if (checkObjFieldIsNotNull(sap)) {
-                    sap.setRecLocation(sapUtil.getSAPPN(sap.getPn(),
+                    sap.setRecLocation(sapUtil.getSapPnSendStock(sap.getPn(),
                             sap.getFactory()));
                     sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
                 } else {
@@ -178,7 +176,7 @@ public class PcbaInventoryController {
                     sap = PcbaService.SelFactory(Lot, "1");
                     try {
                         if (checkObjFieldIsNotNull(sap)) {
-                            sap.setRecLocation(sapUtil.getSAPPN(sap.getPn(),
+                            sap.setRecLocation(sapUtil.getSapPnSendStock(sap.getPn(),
                                     sap.getFactory()));
                             sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
                         } else {
@@ -210,7 +208,7 @@ public class PcbaInventoryController {
                         sap = PcbaService.SelFactory(Lot, "1");
                         try {
                             if (checkObjFieldIsNotNull(sap)) {
-                                sap.setRecLocation(sapUtil.getSAPPN(sap.getPn(),
+                                sap.setRecLocation(sapUtil.getSapPnSendStock(sap.getPn(),
                                         sap.getFactory()));
                                 sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
                             } else {
@@ -226,7 +224,7 @@ public class PcbaInventoryController {
                     sap = PcbaService.SelFactory(Lot, "1");
                     try {
                         if (checkObjFieldIsNotNull(sap)) {
-                            sap.setRecLocation(sapUtil.getSAPPN(sap.getPn(),
+                            sap.setRecLocation(sapUtil.getSapPnSendStock(sap.getPn(),
                                     sap.getFactory()));
                             sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
                         } else {
@@ -852,7 +850,7 @@ public class PcbaInventoryController {
                         SendRecData = PcbaService.BatchData(Lot.substring(0, Lot.indexOf("/")), Lot);
                         if (checkObjFieldIsNotNull(SendRecData)) {
                             SendRecData.setUser(User);
-                            SendRecData.setRecLocation(sapUtil.getSAPPN(
+                            SendRecData.setRecLocation(sapUtil.getSapPnSendStock(
                                     SendRecData.getPn(), SendRecData.getFactory()));
                             state2 = PcbaService.SendSmtInsert(SendRecData);
                             synchronized (this) {
@@ -893,7 +891,7 @@ public class PcbaInventoryController {
                                 Lot);
                         if (checkObjFieldIsNotNull(SendRecData)) {
                             SendRecData.setUser(User);
-                            SendRecData.setRecLocation(sapUtil.getSAPPN(
+                            SendRecData.setRecLocation(sapUtil.getSapPnSendStock(
                                     SendRecData.getPn(), SendRecData.getFactory()));
                             State1 = PcbaService.SendCobInsert(SendRecData);
                             synchronized (this) {
@@ -934,7 +932,7 @@ public class PcbaInventoryController {
                                 Lot);
                         if (checkObjFieldIsNotNull(SendRecData)) {
                             SendRecData.setUser(User);
-                            SendRecData.setRecLocation(sapUtil.getSAPPN(
+                            SendRecData.setRecLocation(sapUtil.getSapPnSendStock(
                                     SendRecData.getPn(), SendRecData.getFactory()));
                             State1 = PcbaService.SendMiInsert(SendRecData);
                             synchronized (this) {

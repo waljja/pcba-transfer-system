@@ -7,7 +7,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * RestTemplateConfig
+ * 外部接口调用配置
  *
  * @author 丁国钊
  * @date 2023-11-1 9:40

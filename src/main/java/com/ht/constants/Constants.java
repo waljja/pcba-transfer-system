@@ -15,8 +15,8 @@ public class Constants {
     };
 
     public static boolean isNames(String Name) {
-        for (int i = 0; i < NAME.length; i++) {
-            if (NAME[i].equals(Name)) {
+        for (String s : NAME) {
+            if (s.equals(Name)) {
                 return true;
             }
         }
@@ -24,8 +24,8 @@ public class Constants {
     }
 
     public static boolean isAccount(String Account) {
-        for (int i = 0; i < ACCOUNT.length; i++) {
-            if (ACCOUNT[i].equals(Account)) {
+        for (String s : ACCOUNT) {
+            if (s.equals(Account)) {
                 return true;
             }
         }
