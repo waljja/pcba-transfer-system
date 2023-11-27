@@ -1208,52 +1208,48 @@ public class PcbaInventoryController {
                                                   @RequestParam(name = "userID", defaultValue = "")
                                                   @ApiParam("工号") String userID) {
         List<PCBAInventoryEntity1> inventories;
-        //根据Lot查询库存信息
+        // 根据Lot查询库存信息
         PCBAInventoryExample1 inventoryExample = new PCBAInventoryExample1();
-        inventoryExample.createCriteria().andUIDEqualTo(Lot);
+        inventoryExample.createCriteria().andUIDEqualTo(Lot).andStateEqualTo(1);
         inventories = inventoryMapper.selectByExample(inventoryExample);
+        // 显示在看板上的才能下架
         if (!inventories.isEmpty()) {
-            // 显示在看板上的才能下架
-            if (inventories.get(0).getState() == 1) {
-                PCBAInventoryEntity1 inventory1 = new PCBAInventoryEntity1();
-                inventory1.setState(3);
-                PCBAInventoryExample1 inventoryExample1 = new PCBAInventoryExample1();
-                inventoryExample1.createCriteria().andUIDEqualTo(Lot).andStateEqualTo(1);
-                //下架库存
-                int isUpdated = inventoryMapper.updateByExampleSelective(inventory1, inventoryExample1);
-                if (isUpdated != 0) {
-                    //查询已下架的Lot（用于新增下架记录）
-                    PCBAInventoryExample1 inventoryExample2 = new PCBAInventoryExample1();
-                    inventoryExample2.createCriteria().andUIDEqualTo(Lot).andStateEqualTo(3);
-                    inventories = inventoryMapper.selectByExample(inventoryExample2);
-                    /*
-                     *插入下架记录
-                     */
-                    PCBAInventoryEntity1 inventory = inventories.get(0);
-                    InventoryTakeDownEntity takeDown = new InventoryTakeDownEntity();
-                    //把查出来的入库记录直接映射到下架对象中
-                    BeanUtils.copyProperties(inventory, takeDown);
-                    Date date = new Date();
-                    //获取当前系统时间
-                    date.setTime(System.currentTimeMillis());
-                    //设置成当前下架操作人
-                    takeDown.setCreateUser(userID);
-                    //设置下架时间
-                    takeDown.setCreateTime(date);
-                    int isInserted = inventoryTakeDownMapper.insertSelective(takeDown);
-                    if (isInserted != 0) {
-                        return CommonResult.success(ResultCode.TAKEDOWN_SUCCESS);
-                    } else {
-                        return CommonResult.failed("新增库存下架记录失败！");
-                    }
+            PCBAInventoryEntity1 inventory1 = new PCBAInventoryEntity1();
+            inventory1.setState(3);
+            PCBAInventoryExample1 inventoryExample1 = new PCBAInventoryExample1();
+            inventoryExample1.createCriteria().andUIDEqualTo(Lot).andStateEqualTo(1);
+            // 下架库存
+            int isUpdated = inventoryMapper.updateByExampleSelective(inventory1, inventoryExample1);
+            if (isUpdated != 0) {
+                // 查询已下架的Lot（用于新增下架记录）
+                PCBAInventoryExample1 inventoryExample2 = new PCBAInventoryExample1();
+                inventoryExample2.createCriteria().andUIDEqualTo(Lot).andStateEqualTo(3);
+                inventories = inventoryMapper.selectByExample(inventoryExample2);
+                /*
+                 * 插入下架记录
+                 */
+                PCBAInventoryEntity1 inventory = inventories.get(0);
+                InventoryTakeDownEntity takeDown = new InventoryTakeDownEntity();
+                // 把查出来的入库记录直接映射到下架对象中
+                BeanUtils.copyProperties(inventory, takeDown);
+                Date date = new Date();
+                // 获取当前系统时间
+                date.setTime(System.currentTimeMillis());
+                // 设置成当前下架操作人
+                takeDown.setCreateUser(userID);
+                // 设置下架时间
+                takeDown.setCreateTime(date);
+                int isInserted = inventoryTakeDownMapper.insertSelective(takeDown);
+                if (isInserted != 0) {
+                    return CommonResult.success(ResultCode.TAKEDOWN_SUCCESS);
                 } else {
-                    return CommonResult.failed("库存下架失败！");
+                    return CommonResult.failed("新增库存下架记录失败！");
                 }
             } else {
-                return CommonResult.failed("Lot不在库存中！无需下架");
+                return CommonResult.failed("库存下架失败！");
             }
         } else {
-            return CommonResult.failed("库存表不存在该Lot");
+            return CommonResult.failed("Lot不在库存中！无需下架");
         }
     }
 
