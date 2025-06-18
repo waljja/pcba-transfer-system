@@ -2,21 +2,14 @@ package com.ht.controller;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
 
 import java.lang.reflect.Field;
 
-import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ht.api.CommonResult;
@@ -29,9 +22,9 @@ import com.ht.service.UserService;
  *
  * @author 张越
  */
-@Api("JavaAPI接口")
 @CrossOrigin
 @RestController
+@Api("PCBA移交系统接口")
 @RequestMapping(value = "/api")
 public class UserController {
 
@@ -53,7 +46,7 @@ public class UserController {
         if (checkObjFieldIsNotNull(state)) {
             strArray = state.getPermissions().split(",");
         } else {
-            result = ResultCode.LOGINGFAILED;
+            result = ResultCode.LOGIN_FAILED;
             return CommonResult.failed(result);
         }
         return CommonResult.successLogin("登入成功", state.getFactory(), state.getNode(), state.getName(), strArray);

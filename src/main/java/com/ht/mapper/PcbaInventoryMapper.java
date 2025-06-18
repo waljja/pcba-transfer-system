@@ -1,15 +1,24 @@
 package com.ht.mapper;
 
+import com.ht.entity.LotSn;
+import com.ht.vo.SendRecDataVo;
+import com.ht.vo.TotalVo;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
 import java.util.List;
 import java.util.Map;
 
-import org.apache.ibatis.annotations.Param;
-
-import com.ht.vo.SapClosingTime;
-import com.ht.vo.SendRecDataVo;
-import com.ht.vo.TotalVo;
-
+@Mapper
 public interface PcbaInventoryMapper {
+
+    /**
+     * 查找存放位置编码
+     *
+     * @param locationCode 存放位置编码
+     * @return 存放位置编码
+     */
+    Integer checkLocationCodeExists(String locationCode);
 
     /**
      * 特殊型号
@@ -32,12 +41,6 @@ public interface PcbaInventoryMapper {
 
     List<Map<String, Object>> PCBAInventoryData(@Param("pageIndex") int pageIndex, @Param("pageSize") int pageSize, @Param("plant1") List<String> plant1, @Param("workcenter1") List<String> workcenter1, @Param("wo1") List<String> wo1, @Param("partnumber1") List<String> partnumber1);
 
-    //查询Smt工序批次数据
-//    SendRecDataVo QRYSmtData(String Lot);
-
-    //查询Smt工序批次数据
-//    SendRecDataVo QRYSmtDataNo(String Lot);
-
     /**
      * 绑库（插入库存表）
      *
@@ -46,7 +49,6 @@ public interface PcbaInventoryMapper {
      */
     int PcbaStorage(SendRecDataVo SendRecData);
 
-    //查询Pcba库存信息
     SendRecDataVo BatchData(@Param("Wo") String Wo, @Param("Lot") String Lot);
 
     /**
@@ -57,7 +59,12 @@ public interface PcbaInventoryMapper {
      */
     int SendSmtplugin101(SendRecDataVo SendRecData);
 
-    //查询批次是否在库存中
+    /**
+     * 查询批次是否在库存中
+     *
+     * @param Lot 交接单号
+     * @return
+     */
     String InventoryState(String Lot);
 
     /**
@@ -77,7 +84,6 @@ public interface PcbaInventoryMapper {
      */
     int InventoryStatus(@Param("Lot") String Lot, @Param("model") String model);
 
-    //查询收发料信息
     SendRecDataVo SelFactory(@Param("Lot") String Lot, @Param("model") String model);
 
     /**
@@ -97,8 +103,6 @@ public interface PcbaInventoryMapper {
      */
     int UpStatus(String Lot);
 
-//    List<Map<String, Object>> QRYSmtDataMap(String Lot);
-
     SendRecDataVo RxCobData(@Param("Lot") String Lot, @Param("Type") String Type);
 
     SendRecDataVo Off_RxCobData(@Param("Lot") String Lot, @Param("Type") String Type);
@@ -108,9 +112,7 @@ public interface PcbaInventoryMapper {
     int RxSmtInsert315(SendRecDataVo SendRecData);
 
     int SendCobInsert(SendRecDataVo SendRecData);
-    //COB 收料
 
-    //Mi收料
     int RxCobInsert315(SendRecDataVo SendRecData);
 
     int SendMiInsert(SendRecDataVo SendRecData);
@@ -118,18 +120,19 @@ public interface PcbaInventoryMapper {
     int SendMiInsertSpecial(SendRecDataVo SendRecData);
 
     int PcbaStorageSpecial(SendRecDataVo SendRecData);
-    //Mi收料
 
-    //Casing收料
+    /**
+     * 批量插入SN记录
+     *
+     * @param lotSn 批次SN记录
+     * @return 插入数量
+     */
+    int batchInsSnRecords(@Param("lotSnList") List<LotSn> lotSnList);
+
     int RxMiInsert315(SendRecDataVo SendRecData);
 
-    int SendCasingInsert(SendRecDataVo SendRecData);
-    //Casing收料
-
-    //smt发料库存表
     int SendSmtInsert(SendRecDataVo SendRecData);
 
-    //插入SN明细
     int InsertSN(@Param("Sn") String Sn, @Param("Lot") String Lot, @Param("LotQty") String LotQty, @Param("WO") String WO, @Param("WERKS") String WERKS, @Param("CreateUser") String CreateUser);
 
     List<Map<String, Object>> FuzzyPn(@Param("Pn") String Pn, @Param("plant") String plant, @Param("workcenter") String workcenter);
@@ -138,6 +141,12 @@ public interface PcbaInventoryMapper {
 
     String UidState(String Lot);
 
-    SapClosingTime SapSuspended();
+    /**
+     * 根据类型查找特权用户
+     *
+     * @param type 1-发板特权用户 2-绑库特权用户
+     * @return 特权用户
+     */
+    List<String> selPrivilegedUsers(@Param("type") int type);
 
 }

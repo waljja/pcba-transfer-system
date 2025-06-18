@@ -1,4 +1,4 @@
-package com.ht.util;
+package com.ht.utils;
 
 import com.sap.conn.jco.*;
 import com.sap.conn.jco.ext.DestinationDataProvider;
@@ -9,11 +9,11 @@ import java.io.FileOutputStream;
 import java.util.Properties;
 
 @Slf4j
-public class SAPServiceUtil {
+public class SapUtils {
 
     private static final String ABAP_AS_POOLED = "ABAP_AS_WITH_POOL_LEDLIGHT";
 
-    public SAPServiceUtil() {
+    public SapUtils() {
         try {
             Properties connectProperties = new Properties();
             // SAP服务器
@@ -32,8 +32,6 @@ public class SAPServiceUtil {
             connectProperties.setProperty(DestinationDataProvider.JCO_POOL_CAPACITY, "10");
             // 最大连接线程
             connectProperties.setProperty(DestinationDataProvider.JCO_PEAK_LIMIT, "20");
-            // SAP ROUTER
-            // connectProperties.setProperty(DestinationDataProvider.JCO_SAPROUTER, sapConn.getJCO_SAPROUTER());
             createDataFile(connectProperties);
         } catch (Exception e) {
             log.error(e.toString());
@@ -41,7 +39,7 @@ public class SAPServiceUtil {
     }
 
     private void createDataFile(Properties properties) {
-        File cfg = new File(SAPServiceUtil.ABAP_AS_POOLED + ".jcoDestination");
+        File cfg = new File(SapUtils.ABAP_AS_POOLED + ".jcoDestination");
         if (!cfg.exists()) {
             try {
                 FileOutputStream fos = new FileOutputStream(cfg, false);
@@ -55,43 +53,13 @@ public class SAPServiceUtil {
     }
 
     /**
-     * 根据PN，工厂获取工单发板上游库位
+     * 根据PN，工厂获取发出库位
      *
      * @param pn   零部件号
      * @param area 厂区
      * @return 工单发板上游库位
      */
-    public String getSapPnSendStock(String pn, String area) {
-        try {
-            String sendStock;
-            // 获取连接池
-            JCoDestination destination = JCoDestinationManager.getDestination(ABAP_AS_POOLED);
-            // 获取功能函数
-            JCoFunction function = destination.getRepository().getFunction("Z_DC_GET_MATERIAL");
-            if (function == null) throw new RuntimeException("BAPI_COMPANYCODE_GETLIST not found in SAP.");
-            // 给功能函数输入参数
-            JCoParameterList input = function.getImportParameterList();
-            input.setValue("I_MATNR", pn);
-            input.setValue("I_WERKS", area);
-            // 函数执行
-            function.execute(destination);
-            sendStock = function.toXML();
-            sendStock = (String) sendStock.subSequence(sendStock.indexOf("<ZISSLOC>") + 9, sendStock.indexOf("</ZISSLOC>"));
-            return sendStock;
-        } catch (JCoException | RuntimeException e) {
-            log.error(e.toString());
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
-     * 根据PN，工厂获取发出库位
-     *
-     * @param pn 零部件号
-     * @param area 厂区
-     * @return 工单发板下游库位
-     */
-    public String getSapPnRec(String pn, String area) {
+    public String getSapPnSendLocation(String pn, String area) {
         try {
             String partNumber;
             // 获取连接池
@@ -108,6 +76,36 @@ public class SAPServiceUtil {
             partNumber = function.toXML();
             partNumber = (String) partNumber.subSequence(partNumber.indexOf("<LGPRO>") + 7, partNumber.indexOf("</LGPRO>"));
             return partNumber;
+        } catch (JCoException | RuntimeException e) {
+            log.error(e.toString());
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 根据PN，工厂获取工单发板下游库位
+     *
+     * @param pn   零部件号
+     * @param area 厂区
+     * @return 工单发板下游库位
+     */
+    public String getSapPnRecLocation(String pn, String area) {
+        try {
+            String sendStock;
+            // 获取连接池
+            JCoDestination destination = JCoDestinationManager.getDestination(ABAP_AS_POOLED);
+            // 获取功能函数
+            JCoFunction function = destination.getRepository().getFunction("Z_DC_GET_MATERIAL");
+            if (function == null) throw new RuntimeException("BAPI_COMPANYCODE_GETLIST not found in SAP.");
+            // 给功能函数输入参数
+            JCoParameterList input = function.getImportParameterList();
+            input.setValue("I_MATNR", pn);
+            input.setValue("I_WERKS", area);
+            // 函数执行
+            function.execute(destination);
+            sendStock = function.toXML();
+            sendStock = (String) sendStock.subSequence(sendStock.indexOf("<ZISSLOC>") + 9, sendStock.indexOf("</ZISSLOC>"));
+            return sendStock;
         } catch (JCoException | RuntimeException e) {
             log.error(e.toString());
             throw new RuntimeException(e);

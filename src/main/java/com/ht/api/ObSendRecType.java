@@ -1,25 +1,23 @@
 package com.ht.api;
 
+import lombok.Getter;
 
+/**
+ * Orbit收发类型编码枚举
+ */
+@Getter
 public enum ObSendRecType {
-	SMTSEND("SPE100000060"),  
-    COBSEND("SPE100000063"),  
-    COBREC("SPE100000061"),
-	MISEND("SPE10000006B"),
-	MIREC("SPE10000006C"),
-	CASINGREC("SPE100000066");
+	SMT_SEND("SPE100000060"),
+    COB_SEND("SPE100000063"),
+    COB_REC("SPE100000061"),
+	MI_SEND("SPE10000006B"),
+	MI_REC("SPE10000006C"),
+	CASING_REC("SPE100000066");
 
-    private String typeName;  
-
-    public String getTypeName() {
-		return typeName;
-	}
+    private final String typeName;
 
 	ObSendRecType(String typeName) {
     	this.typeName = typeName; 
     }
-    
-    ObSendRecType() {  
-     
-    }  
+
 }

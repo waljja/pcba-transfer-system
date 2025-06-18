@@ -1,4 +1,4 @@
-package com.ht.util;
+package com.ht.utils;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -12,9 +12,9 @@ import java.util.Map;
 import java.util.ArrayList;
 
 @SuppressWarnings("unchecked")
-public class Con75DB {
+public class Con72DB {
 	private static String strDBDriver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-	private static String strDBUrl = "jdbc:sqlserver://172.31.2.75;DatabaseName=OrBitX";
+	private static String strDBUrl = "jdbc:sqlserver://172.31.2.72;DatabaseName=OrBitX";
 	public Connection con = null;
 	private ResultSet rs = null;
 	private List<Map<String, Object>> list = new ArrayList<Map<String,Object>>();
@@ -22,7 +22,7 @@ public class Con75DB {
 	private String user = "mes";
 	private String password = "system";
 
-	public Con75DB() {
+	public Con72DB() {
 		init();
 	}
 
@@ -148,7 +148,7 @@ public class Con75DB {
 	}
 
 	public static void main(String[] args) {
-		Con75DB c = new Con75DB();
+		Con72DB c = new Con72DB();
 		System.out.println(c.con);
 	}
 

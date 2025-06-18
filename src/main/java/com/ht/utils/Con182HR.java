@@ -1,4 +1,4 @@
-package com.ht.util;
+package com.ht.utils;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -11,18 +11,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 
-@SuppressWarnings("unchecked")
-public class Con72DB {
+public class Con182HR {
 	private static String strDBDriver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-	private static String strDBUrl = "jdbc:sqlserver://172.31.2.72;DatabaseName=OrBitX";
+	private static String strDBUrl = "jdbc:sqlserver://172.31.2.182;DatabaseName=HTMES_MES_Main";
 	public Connection con = null;
 	private ResultSet rs = null;
-	private List<Map<String, Object>> list = new ArrayList<Map<String,Object>>();
+	private List<Map<String, Object>> list = new ArrayList<>();
 	private Statement stmt = null;
 	private String user = "mes";
-	private String password = "system";
+	private String password = "htMesV2!@";
 
-	public Con72DB() {
+	public Con182HR() {
 		init();
 	}
 
@@ -72,9 +71,10 @@ public class Con72DB {
 		return list;
 	}
 
-	public void executeUpdate(String sql) throws SQLException {
+	public int executeUpdate(String sql) throws SQLException {
 		this.stmt = this.con.createStatement();
 		this.stmt.executeUpdate(sql);
+		return this.stmt.executeUpdate(sql);
 	}
 
 	public void close() {
@@ -148,7 +148,7 @@ public class Con72DB {
 	}
 
 	public static void main(String[] args) {
-		Con72DB c = new Con72DB();
+		Con182HR c = new Con182HR();
 		System.out.println(c.con);
 	}
 

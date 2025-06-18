@@ -1,4 +1,4 @@
-package com.ht.util;
+package com.ht.utils;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -12,17 +12,17 @@ import java.util.Map;
 import java.util.ArrayList;
 
 @SuppressWarnings("unchecked")
-public class Con182HR {
+public class Con75DB {
 	private static String strDBDriver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-	private static String strDBUrl = "jdbc:sqlserver://172.31.2.182;DatabaseName=HTMES_MES_Main";
+	private static String strDBUrl = "jdbc:sqlserver://172.31.2.75;DatabaseName=OrBitX";
 	public Connection con = null;
 	private ResultSet rs = null;
 	private List<Map<String, Object>> list = new ArrayList<Map<String,Object>>();
 	private Statement stmt = null;
 	private String user = "mes";
-	private String password = "htMesV2!@";
+	private String password = "system";
 
-	public Con182HR() {
+	public Con75DB() {
 		init();
 	}
 
@@ -72,10 +72,9 @@ public class Con182HR {
 		return list;
 	}
 
-	public int executeUpdate(String sql) throws SQLException {
+	public void executeUpdate(String sql) throws SQLException {
 		this.stmt = this.con.createStatement();
 		this.stmt.executeUpdate(sql);
-		return this.stmt.executeUpdate(sql);
 	}
 
 	public void close() {
@@ -149,7 +148,7 @@ public class Con182HR {
 	}
 
 	public static void main(String[] args) {
-		Con182HR c = new Con182HR();
+		Con75DB c = new Con75DB();
 		System.out.println(c.con);
 	}
 
