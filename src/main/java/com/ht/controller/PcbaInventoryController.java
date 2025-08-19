@@ -9,7 +9,6 @@ import com.ht.entity.PCBAInventoryExample1;
 import com.ht.mapper.InventoryTakeDownMapper;
 import com.ht.mapper.PCBAInventoryMapper1;
 import com.ht.service.PcbaInventoryService;
-import com.ht.service.TransactionService;
 import com.ht.utils.*;
 import com.ht.vo.SendRecDataVo;
 import com.ht.vo.TotalVo;
@@ -49,16 +48,14 @@ public class PcbaInventoryController {
     private final PcbaInventoryService pcbaService;
     private final PCBAInventoryMapper1 inventoryMapper;
     private final InventoryTakeDownMapper inventoryTakeDownMapper;
-    private final TransactionService transactionService;
     private final RestTemplate restTemplate;
 
     public PcbaInventoryController(TransactionTemplate transactionTemplate, PcbaInventoryService pcbaService, PCBAInventoryMapper1 inventoryMapper,
-                                   InventoryTakeDownMapper inventoryTakeDownMapper, TransactionService transactionService, RestTemplate restTemplate) {
+                                   InventoryTakeDownMapper inventoryTakeDownMapper, RestTemplate restTemplate) {
         this.transactionTemplate = transactionTemplate;
         this.pcbaService = pcbaService;
         this.inventoryMapper = inventoryMapper;
         this.inventoryTakeDownMapper = inventoryTakeDownMapper;
-        this.transactionService = transactionService;
         this.restTemplate = restTemplate;
     }
 
@@ -180,16 +177,12 @@ public class PcbaInventoryController {
         SendRecDataVo sap = null;
         if (node.equals("REC")) {
             sap = pcbaService.SelFactory(Lot, "0");
-            try {
-                if (checkObjFieldIsNotNull(sap)) {
-                    sap.setRecLocation(sapUtil.getSapPnRecLocation(sap.getPn(),
-                            sap.getFactory()));
-                    sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
-                } else {
-                    return CommonResult.failed("没有查询到该Lot号收料数据！");
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+            if (checkObjFieldIsNotNull(sap)) {
+                sap.setRecLocation(sapUtil.getSapPnRecLocation(sap.getPn(),
+                        sap.getFactory()));
+                sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
+            } else {
+                return CommonResult.failed("没有查询到该Lot号收料数据！");
             }
             return CommonResult.success(sap);
         } else {
@@ -198,28 +191,20 @@ public class PcbaInventoryController {
             if (sendPrivilegedUsers.contains(user)) {
                 if (!Lot.isEmpty()) {
                     // Lot不为空则查询Lot数据
-                    sap = null;
                     sap = pcbaService.SelFactory(Lot, "1");
-                    try {
-                        if (checkObjFieldIsNotNull(sap)) {
-                            sap.setRecLocation(sapUtil.getSapPnRecLocation(sap.getPn(),
-                                    sap.getFactory()));
-                            sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
-                        } else {
-                            return CommonResult.failed("没有查询到该Lot号发料数据2！");
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                    if (checkObjFieldIsNotNull(sap)) {
+                        sap.setRecLocation(sapUtil.getSapPnRecLocation(sap.getPn(),
+                                sap.getFactory()));
+                        sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
+                    } else {
+                        return CommonResult.failed("没有查询到该Lot号发料数据2！");
                     }
                 }
             } else {
-                if (!ProductModel.equals("") || !ProductModel.equals(null)) {
-                    sap = null;
-                    sap = pcbaService.PcbaFIFO(ProductModel, factory);
-                }
+                sap = pcbaService.PcbaFIFO(ProductModel, factory);
                 if (checkObjFieldIsNotNull(sap)) {
                     if (!sap.getUID().equals(Lot)) {
-                        if (!Lot.equals("")
+                        if (!Lot.isEmpty()
                                 && pcbaService.UidState(Lot).equals("0")) {
                             return CommonResult.failed("此Lot号已扫描，现在应发:"
                                     + sap.getUID() + ",该Lot在:" + sap.getLocation()
@@ -230,33 +215,24 @@ public class PcbaInventoryController {
                                     + "位置！");
                         }
                     } else {
-                        sap = null;
                         sap = pcbaService.SelFactory(Lot, "1");
-                        try {
-                            if (checkObjFieldIsNotNull(sap)) {
-                                sap.setRecLocation(sapUtil.getSapPnRecLocation(sap.getPn(),
-                                        sap.getFactory()));
-                                sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
-                            } else {
-                                return CommonResult.failed("没有查询到该Lot号发料数据1！");
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    return CommonResult.success(sap);
-                } else {
-                    sap = pcbaService.SelFactory(Lot, "1");
-                    try {
                         if (checkObjFieldIsNotNull(sap)) {
                             sap.setRecLocation(sapUtil.getSapPnRecLocation(sap.getPn(),
                                     sap.getFactory()));
                             sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
                         } else {
-                            return CommonResult.failed("没有查询到该Lot号发料数据2！");
+                            return CommonResult.failed("没有查询到该Lot号发料数据1！");
                         }
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                    }
+                    return CommonResult.success(sap);
+                } else {
+                    sap = pcbaService.SelFactory(Lot, "1");
+                    if (checkObjFieldIsNotNull(sap)) {
+                        sap.setRecLocation(sapUtil.getSapPnRecLocation(sap.getPn(),
+                                sap.getFactory()));
+                        sap.setBatch(sap.getBatch().replaceAll("^0*", ""));
+                    } else {
+                        return CommonResult.failed("没有查询到该Lot号发料数据2！");
                     }
                 }
             }
@@ -267,9 +243,9 @@ public class PcbaInventoryController {
     /**
      * 翻页查询数据
      *
-     * @param pageIndex
-     * @param pageSize
-     * @return
+     * @param pageIndex 页码
+     * @param pageSize  每页条数
+     * @return 看板数据
      */
     @ApiOperation(value = "翻页查询数据")
     @GetMapping(value = "/newdata")
@@ -289,23 +265,23 @@ public class PcbaInventoryController {
         workcenter = getSubString(workcenter, symbol);
         wo = getSubString(wo, symbol);
         partnumber = getSubString(partnumber, symbol);
-        if (plant.equals("null") || plant.equals("")) {
-            plant1 = Arrays.asList();
+        if (plant.equals("null") || plant.isEmpty()) {
+            plant1 = Collections.emptyList();
         } else {
             plant1 = Arrays.asList(plant.split(","));
         }
-        if (workcenter.equals("null") || workcenter.equals("")) {
-            workcenter1 = Arrays.asList();
+        if (workcenter.equals("null") || workcenter.isEmpty()) {
+            workcenter1 = Collections.emptyList();
         } else {
             workcenter1 = Arrays.asList(workcenter.split(","));
         }
-        if (wo.equals("null") || wo.equals("")) {
-            wo1 = Arrays.asList();
+        if (wo.equals("null") || wo.isEmpty()) {
+            wo1 = Collections.emptyList();
         } else {
             wo1 = Arrays.asList(wo.split(","));
         }
-        if (partnumber.equals("null") || partnumber.equals("")) {
-            partnumber1 = Arrays.asList();
+        if (partnumber.equals("null") || partnumber.isEmpty()) {
+            partnumber1 = Collections.emptyList();
         } else {
             partnumber1 = Arrays.asList(partnumber.split(","));
         }
@@ -915,22 +891,6 @@ public class PcbaInventoryController {
                             }
                         }
                     });
-                    /*state3 = pcbaService.InventoryStatus(Lot, "2");
-                    if (state3 > 0) {
-                        if (checkObjFieldIsNotNull(SendRecData1)) {
-                            SendRecData1.setUser(UserName);
-                            state1 = pcbaService.PcbaStorage(SendRecData1);
-                            if (state1 > 0) {
-                                return CommonResult.success("SMT保存到库存表成功!");
-                            } else {
-                                return CommonResult.failed("绑库失败！");
-                            }
-                        } else {
-                            return CommonResult.failed("未查询到相关批次数据，请确认批次是否有错！");
-                        }
-                    } else {
-                        return CommonResult.failed("重新绑库失败！");
-                    }*/
                 }
             } else {
                 // 移库事务
@@ -984,44 +944,6 @@ public class PcbaInventoryController {
                         }
                     }
                 });
-                /*state3 = pcbaService.InventoryStatus(Lot, "2");
-                if (state3 > 0) {
-                    // B2
-                    rs = Con72DB.executeQuery(SqlApi.SelLotData(Lot));
-                    SendRecDataVo SendRecData1 = new SendRecDataVo();
-                    if (rs.next()) {
-                        if (!rs.getString("Pn").startsWith("620")) {
-                            return CommonResult.failed("SMT账号只能绑SMT的型号");
-                        }
-                        SendRecData1.setWo(rs.getString("Wo"));
-                        SendRecData1.setWoQty(rs.getString("WoQty"));
-                        SendRecData1.setPn(rs.getString("Pn"));
-                        SendRecData1.setQty(rs.getString("Qty"));
-                        SendRecData1.setBatch(rs.getString("Batch")
-                                .subSequence(14, rs.getString("Batch").length())
-                                .toString());
-                        SendRecData1.setUser(UserName);
-                        SendRecData1.setFactory(rs.getString("Factory"));
-                        SendRecData1.setWorkcenter("1");
-                        SendRecData1.setUID(rs.getString("Batch"));
-                        SendRecData1.setSendLocation(Location);
-                        SendRecData1.setPlant(factory);
-                    }
-                    // Orbit交接单数据不为空
-                    if (checkObjFieldIsNotNull(SendRecData1)) {
-                        SendRecData1.setUser(UserName);
-                        state1 = pcbaService.PcbaStorage(SendRecData1);
-                        if (state1 > 0) {
-                            return CommonResult.success("SMT保存到库存表成功!");
-                        } else {
-                            return CommonResult.failed("绑库失败！");
-                        }
-                    } else {
-                        return CommonResult.failed("未查询到相关批次数据，请确认批次是否有错！");
-                    }
-                } else {
-                    return CommonResult.failed("重新绑库失败！");
-                }*/
             }
         } else {
             // B2
@@ -1089,22 +1011,6 @@ public class PcbaInventoryController {
                         }
                     }
                 });
-                /*state3 = pcbaService.InventoryStatus(Lot, "2");
-                if (state3 > 0) {
-                    if (checkObjFieldIsNotNull(SendRecData1)) {
-                        SendRecData1.setUser(UserName);
-                        state1 = pcbaService.PcbaStorage(SendRecData1);
-                        if (state1 > 0) {
-                            return CommonResult.success("SMT保存到库存表成功!");
-                        } else {
-                            return CommonResult.failed("绑库失败！");
-                        }
-                    } else {
-                        return CommonResult.failed("未查询到相关批次数据，请确认批次是否有错！");
-                    }
-                } else {
-                    return CommonResult.failed("重新绑库失败！");
-                }*/
             }
         }
     }
@@ -1139,7 +1045,7 @@ public class PcbaInventoryController {
             con72db.close();
             con75db.close();
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("SQL异常：" + e);
         }
     }
 
@@ -1148,8 +1054,7 @@ public class PcbaInventoryController {
         try {
             for (Field f : obj.getClass().getDeclaredFields()) {
                 f.setAccessible(true);
-                if (f.get(obj) == null || f.get(obj) == "") {
-                } else {
+                if (f.get(obj) != null && f.get(obj) != "") {
                     flag = true;
                 }
             }
@@ -1170,18 +1075,18 @@ public class PcbaInventoryController {
         Calendar end = Calendar.getInstance();
         end.setTime(date2);
         if ((date.after(begin) && date.before(end))
-                || (date.getTime() == begin.getTime() || date.getTime() == end
-                .getTime())) {
+                || (date.getTime().equals(begin.getTime()) || date.getTime().equals(end
+                .getTime()))) {
             flag = false;
         }
         return flag;
     }
 
     public static String getSubString(String str1, String[] str2) {
-        StringBuffer sb = new StringBuffer(str1);
-        for (int i = 0; i < str2.length; i++) {
+        StringBuilder sb = new StringBuilder(str1);
+        for (String s : str2) {
             while (true) {
-                int index = sb.indexOf(str2[i]);
+                int index = sb.indexOf(s);
                 if (index == -1) {
                     break;
                 }

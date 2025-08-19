@@ -123,16 +123,6 @@ public class SqlApi {
     }
 
     /**
-     * LOT号SN明细 CASING
-     *
-     * @param Lot 批次
-     * @return SQL
-     */
-    public static String SelCasingSnData(String Lot) {
-        return "select LotSN as SN,ASSLot as Lot from Lot where ASSLot= '" + Lot + "' ";
-    }
-
-    /**
      * 根据工单取批次号最大的UID
      *
      * @param Wo 工单

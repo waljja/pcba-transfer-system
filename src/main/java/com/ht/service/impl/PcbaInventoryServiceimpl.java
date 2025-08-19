@@ -304,35 +304,6 @@ public class PcbaInventoryServiceimpl implements PcbaInventoryService {
                     } else {
                         return CommonResult.failed("没有查询到对应Lot号数据");
                     }
-//                case "casing":
-//                    data.setWorkcenter("4");
-//                    try (ResultSet rs1 = factory.equals("B1") ? con72db.executeQuery(SqlApi.SelLotData(lot)) :
-//                            con51db.executeQuery(SqlApi.SelLotData(lot))) {
-//                        if (rs1.next()) {
-//                            if (!rs1.getString("Pn").startsWith("65")) {
-//                                return CommonResult.failed("请用对应账号做101入库");
-//                            }
-//                            data.setQty(rs1.getString("Qty"));
-//                            data.setWo(rs1.getString("Wo"));
-//                            data.setWoQty(rs1.getString("WoQty"));
-//                            data.setFactory(rs1.getString("Factory"));
-//                            data.setSendLocation(location);
-//                            data.setRecLocation(rs1.getString("RecLocation").trim());
-//                            data.setPn(rs1.getString("Pn"));
-//                            try (ResultSet rs2 = factory.equals("B1") ? con72db.executeQuery(SqlApi.SelCasingSnData(lot)) :
-//                                    con51db.executeQuery(SqlApi.SelCasingSnData(lot))) {
-//                                lotSnList = extractSnRecords(rs2, data);
-//                                boolean isWorkReportSuccess = transactionService.workReportAndInventoryIn(data, lotSnList);
-//                                if (isWorkReportSuccess) {
-//                                    return CommonResult.success("CASING101入库成功");
-//                                } else {
-//                                    return CommonResult.failed("该Lot号已做过101入库(CASING)！");
-//                                }
-//                            }
-//                        } else {
-//                            return CommonResult.failed("没有查询到对应Lot号数据");
-//                        }
-//                    }
             }
         } catch (Exception e) {
             log.error("{} 报工异常：", lot);
